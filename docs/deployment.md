@@ -1,8 +1,11 @@
 # Deployment (Azure Portal Only) — Azure RBAC Baseline
 
+## Objective
+Deploy a group-based RBAC baseline at **Resource Group scope** (`rg-rbac-baseline`) and prepare identities/resources for validation.
+
 ## Prerequisites
 - Azure subscription (trial) with **Owner** access (confirmed)
-- Access to Microsoft Entra ID to create groups and users (or have admin rights)
+- Access to Microsoft Entra ID to create groups and users (or appropriate admin rights)
 
 ## Resources Created
 - Resource Group: `rg-rbac-baseline`
@@ -11,9 +14,17 @@
   - `RBAC-VMOperators`
   - `RBAC-RG-Owners`
 - Role assignments at **Resource Group** scope:
-  - Reader → RBAC-Readers
-  - Virtual Machine Contributor → RBAC-VMOperators
-  - Owner → RBAC-RG-Owners
+  - Reader → `RBAC-Readers`
+  - Virtual Machine Contributor → `RBAC-VMOperators`
+  - Owner → `RBAC-RG-Owners`
+- (Optional) VM for validation:
+  - `vm-rbac-lab` (used only to validate VM operator start/stop actions)
+
+## Evidence (Screenshots)
+- Role assignments at RG scope:
+  - `/screenshots/01-iam-role-assignments.png`
+
+---
 
 ## Step 1 — Create Resource Group
 1. Azure Portal → **Resource groups** → **Create**
@@ -21,6 +32,8 @@
 3. Resource group name: `rg-rbac-baseline`
 4. Region: select a region close to you
 5. Click **Review + create** → **Create**
+
+---
 
 ## Step 2 — Create Entra ID Security Groups
 1. Azure Portal → search **Microsoft Entra ID** → open
@@ -32,7 +45,9 @@
    - `RBAC-VMOperators`
    - `RBAC-RG-Owners`
 
-## Step 3 — (Recommended) Create Test Users for Validation
+---
+
+## Step 3 — Create Test Users for Validation (Recommended)
 1. Entra ID → **Users** → **New user** → **Create new user**
 2. Create:
    - `lab-reader`
@@ -40,9 +55,11 @@
 3. Add members to groups:
    - Add `lab-reader` → `RBAC-Readers`
    - Add `lab-vmops` → `RBAC-VMOperators`
-   - Add your main account → `RBAC-RG-Owners` (optional)
+   - Add your main account → `RBAC-RG-Owners` (optional if you are already Owner)
 
-> Note: RBAC and group membership can take a few minutes to propagate. Use an Incognito window for sign-in tests.
+> Note: RBAC and group membership can take a few minutes to propagate. Use an Incognito/InPrivate window for sign-in tests.
+
+---
 
 ## Step 4 — Assign Roles at Resource Group Scope (Critical)
 1. Azure Portal → **Resource groups** → open `rg-rbac-baseline`
@@ -52,13 +69,33 @@
    - Role: **Reader** → Member: `RBAC-Readers`
    - Role: **Virtual Machine Contributor** → Member: `RBAC-VMOperators`
    - Role: **Owner** → Member: `RBAC-RG-Owners`
-5. Confirm the scope is **Resource group: rg-rbac-baseline** by checking:
-   - `rg-rbac-baseline` → IAM → **Role assignments** tab (scope should show RG)
+5. Confirm scope is correct:
+   - `rg-rbac-baseline` → IAM → **Role assignments**
+   - Scope should show **This resource** / Resource group (`rg-rbac-baseline`)
 
-## Optional — Create a Small VM (Only if used for VM Operator Proof)
-If you created a VM to validate start/stop actions:
+---
+
+## Step 5 — Provider Registration Note (Why Reader “Create Storage” Fails)
+During validation, `lab-reader` may see a message indicating the `Microsoft.Storage` resource provider is not registered and they do not have permissions to register it.
+- This is expected because provider registration is a **subscription-level** action.
+- Reader at RG scope should not be able to register providers or create resources.
+
+(See validation evidence: `/screenshots/02-reader-denied-create.PNG`)
+
+---
+
+## Optional — Create a Small VM (Used for VM Operator Proof)
+Only do this if you want to validate `RBAC-VMOperators` can manage VM lifecycle actions.
+
 1. Azure Portal → **Virtual machines** → **Create**
 2. Resource group: `rg-rbac-baseline`
 3. VM name: `vm-rbac-lab`
-4. Inbound ports: **None** (no login required for this lab)
-5. Create, validate, then delete (see teardown).
+4. Keep defaults minimal (smallest practical size).
+5. Security posture for this lab:
+   - Do **not** open inbound management ports (no RDP/SSH rules needed for start/stop proof).
+6. Create the VM.
+7. Validate start/stop as `lab-vmops` (see `docs/validation.md`).
+8. Delete the VM during teardown (see `teardown/teardown.md`).
+
+Evidence reference:
+- `/screenshots/03-vmops-start-stop.PNG`
